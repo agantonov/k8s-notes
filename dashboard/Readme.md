@@ -1,8 +1,8 @@
-### Exposing Kubernetes Dashboard UI
+## Exposing Kubernetes Dashboard UI
 
 In this article, I'd like to share my experience with exposing the K8S Dashboard via a NodePort Service and an External Load Balancer. Most guides on the Internet recommend configuring [port-forwarding](https://github.com/kubernetes/dashboard/blob/master/docs/user/accessing-dashboard/README.md). While this might work for an individual administrator, it's not ideal if you want to provide access to the Dashboard to the entire organization. Here, I'll provide a detailed guide on how to achieve this.
 
-#### Installing the Dashboard
+### Installing the Dashboard
 First, you need to install the Dashboard. The installation process is thoroughly discribed in the [official guide](https://github.com/kubernetes/dashboard):
 ```
 # Add kubernetes-dashboard repository
@@ -44,7 +44,7 @@ replicaset.apps/kubernetes-dashboard-web-84f8d6fff4               1         1   
 ```
 Once the K8S Dashboard is up and running, you'll notice that the UI is not accessible from outside the K8S cluster. This is because you need to expose the ClusterIP service ````kubernetes-dashboard-kong-proxy```` in the ````kubernetes-dashboard```` namespace. The most flexible way to do this is through an Ingress object.
 
-#### Setting Up the Ingress Controller
+### Setting Up the Ingress Controller
 An Ingress object is a K8S abstraction that requires a backend or ````Ingress Controller```` to be provided. I will install the [NGINX Controller](https://kubernetes.github.io/ingress-nginx/deploy/), one of the most popular options.
 ```
 helm upgrade --install ingress-nginx ingress-nginx \
@@ -86,7 +86,7 @@ EOF
 ```
 The load balancer listens on port ````8446```` and forwards all incoming TCP packets to two K8S worker nodes ````172.17.122.34:31041```` and ````172.17.122.35:31041````, where the ````ingress-nginx-controller```` NodePort service is listening. How does the Ingress Controller know that an incoming request is intended for the K8S dashboard service? It doesn't, until you configure the NGINX pod running in the backend of the Ingress Controller Service. Fortunately, you don't need to do it manually. K8S provides an abstract object called "Ingress". Once you create or update the ````Ingress```` object, K8S automatically translates your "intent" into an NGINX configuration (or any other Ingress Controller you have chosen). The Ingress Controller continuously monitors the Kubernetes API server for changes to Ingress resources, and updates the underlying load balancer or proxy server (such as NGINX) accordingly.
 
-#### Securing the Communication
+### Securing the Communication
 To secure the communication between external user and the Ingress Controller, you need to generate a certificate. Below is an example of a self-signed certificate:
 ```
 openssl req -x509 -nodes -days 365 -newkey rsa:2048 -keyout dashboard.key -out dashboard.crt -subj "/CN=k8s-dashboard"
@@ -96,7 +96,7 @@ Create a TLS secret from a generated key and certificate:
 kubectl -n kubernetes-dashboard create secret generic kubernetes-dashboard-certs --from-file=tls.crt=dashboard.crt --from-file=tls.key=dashboard.key
 ```
 
-#### Creating the Ingress Object
+### Creating the Ingress Object
 Now, create the Ingress object named ````dashboard-ingress-tls````:
 ```
 cat <<EOF | kubectl apply -f -
@@ -148,7 +148,7 @@ $ k exec ingress-nginx-controller-cf668668c-d5gr5  -n ingress-nginx -- cat /etc/
 	## end server k8s-dashboard
 ```
 
-#### Accessing the K8S Dashboard
+### Accessing the K8S Dashboard
 With everything set up, you can access the K8S dashboard from outside of the cluster. As you can see, K8S requires authorization for the request:
 <img src="images/unauthorized.jpg">
 
@@ -167,7 +167,7 @@ kubectl -n kubernetes-dashboard create token k8s-dashboard
 Copy the token and now you can access the K8S Dashboard from outside of the cluster. This approach allows to expose any service within the K8S cluster.
 <img src="images/dashboard.jpg">
 
-#### Networking Perspective
+### Networking Perspective
 As a network engineer, I find it fascinating to understand what happens under the hood when you create these abstract k8s objects. Here is how the communication looks from the networking perspective:
 <img src="images/network_flow.jpg">
 
